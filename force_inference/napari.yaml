@@ -1,0 +1,23 @@
+name: force_inference
+display_name: Cell Force Inference
+schema_version: "0.2.0"
+
+contributions:
+  commands:
+    - id: force_inference.widget
+      python_name: force_inference._napari:ForceInferenceWidget
+      title: Open Cell Force Inference
+
+    - id: force_inference.sample_data
+      python_name: force_inference._napari:load_test_tissue
+      title: Test tissue image (ForceInferencePy)
+
+  widgets:
+    - command: force_inference.widget
+      display_name: Cell Force Inference
+      autogenerate: false
+
+  sample_data:
+    - command: force_inference.sample_data
+      display_name: Test tissue image (bundled)
+      key: test_tif

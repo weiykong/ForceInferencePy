@@ -1,3 +1,23 @@
+"""ForceInferencePy — Bayesian cell force inference from fluorescence microscopy.
+
+Quick start::
+
+    import force_inference as fi
+    labels, gray = fi.segment_grayscale("image.tif")
+    tissue  = fi.extract_topology_label(labels)
+    result  = fi.solve_bayesian(tissue).best_result
+    print(result.summary())
+
+Napari GUI::
+
+    python -m force_inference._napari --image image.tif
+"""
+
+__version__ = "0.2.0"
+__author__  = "Wei-Yuan Kong"
+__email__   = "weiyuankong@gmail.com"
+__license__ = "MIT"
+
 from .core import Tissue, ForceResult
 from .topology import extract_topology
 from .topology_label import extract_topology_label
@@ -20,22 +40,31 @@ from .visualization import (
 )
 
 __all__ = [
+    # version
+    "__version__",
+    # data structures
     "Tissue",
     "ForceResult",
+    "BayesianScanResult",
+    # segmentation
+    "segment_grayscale",
+    "segment_cellpose",
+    # topology
     "extract_topology",
     "extract_topology_label",
+    # solvers
     "solve_bayesian",
     "solve_bayesian_3d",
     "solve_laplace",
-    "BayesianScanResult",
+    # geometry
     "map_z_to_vertices",
     "calculate_batchelor_stress",
     "interpolate_stress_to_grid",
     "compute_curvature",
-    "segment_grayscale",
-    "segment_cellpose",
+    # time-series
     "TimeSeries",
     "align_timeseries",
+    # visualisation
     "plot_tensions",
     "plot_pressures",
     "plot_curvature",

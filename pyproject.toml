@@ -4,17 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "force_inference"
-version = "0.1.0"
-description = "A robust Python package for force inference in 2D and 2.5D tissues."
+version = "0.2.0"
+description = "Bayesian cell force inference from fluorescence microscopy — label-driven topology, 3D force balance, time-series alignment, napari GUI."
 readme = "README.md"
 authors = [
-    {name = "Wei-Yuan Kong", email = "weiyuankong@example.com"}
+    {name = "Wei-Yuan Kong", email = "weiyuankong@gmail.com"}
 ]
 license = {text = "MIT"}
+keywords = [
+    "force inference", "cell mechanics", "epithelial tissue",
+    "Bayesian", "biophysics", "napari", "fluorescence microscopy",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: napari",
 ]
 requires-python = ">=3.8"
 dependencies = [
@@ -28,6 +41,11 @@ dependencies = [
 cellpose = [
     "cellpose",
 ]
+napari = [
+    "napari[all]>=0.4.18",
+    "magicgui>=0.7.0",
+    "qtpy>=2.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -35,8 +53,15 @@ dev = [
     "mypy>=1.0",
 ]
 
+# ── Napari plugin registration ────────────────────────────────────────────────
+[project.entry-points."napari.manifest"]
+force_inference = "force_inference:napari.yaml"
+
 [tool.setuptools]
-packages = ["force_inference"]
+packages = ["force_inference", "force_inference._napari"]
+
+[tool.setuptools.package-data]
+"force_inference" = ["napari.yaml"]
 
 [project.urls]
 "Homepage" = "https://github.com/weiyuankong/ForceInferencePy"
