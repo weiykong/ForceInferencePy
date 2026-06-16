@@ -239,12 +239,11 @@ class ForceInferenceWidget(QWidget):
         # Tab widget
         self._tabs = QTabWidget()
         self._tabs.addTab(_scroll_wrap(self._tab_segment()),    "① Segment")
-        self._tabs.addTab(_scroll_wrap(self._tab_topology()),   "② Topology")
-        self._tabs.addTab(_scroll_wrap(self._tab_solve()),      "③ Solve")
-        self._tabs.addTab(_scroll_wrap(self._tab_geometry()),   "④ Geometry")
-        self._tabs.addTab(_scroll_wrap(self._tab_visualise()),  "⑤ Visualise")
-        self._tabs.addTab(_scroll_wrap(self._tab_timeseries()), "⑥ TimeSeries")
-        self._tabs.addTab(_scroll_wrap(self._tab_3d()),         "⑦ 2.5D / 3D")
+        self._tabs.addTab(_scroll_wrap(self._tab_topology()),   "② Topology + Curvature")
+        self._tabs.addTab(_scroll_wrap(self._tab_solve()),      "③ Solve + Stress")
+        self._tabs.addTab(_scroll_wrap(self._tab_visualise()),  "④ Visualise")
+        self._tabs.addTab(_scroll_wrap(self._tab_timeseries()), "⑤ TimeSeries")
+        self._tabs.addTab(_scroll_wrap(self._tab_3d()),         "⑥ 2.5D / 3D")
         root.addWidget(self._tabs)
 
         # Run-all button
@@ -390,8 +389,20 @@ class ForceInferenceWidget(QWidget):
             lambda s: self._split_length.setEnabled(bool(s)))
         v.addWidget(_group("split_high_degree_vertices", split_form))
 
+        # ── Curvature (geometry) — runs with topology extraction ──────────────
+        #   Curvature is a geometric property of the extracted edges and is a
+        #   *prerequisite* for the Young-Laplace solver in tab ③.
+        curv_form = QFormLayout()
+        self._do_curvature = _check(
+            True, "Compute curvature (κ + tangents)")
+        curv_note = QLabel("Required for the Young-Laplace solver.")
+        curv_note.setStyleSheet("color:#94a3b8; font-size:9px;")
+        curv_form.addRow("", self._do_curvature)
+        curv_form.addRow("", curv_note)
+        v.addWidget(_group("compute_curvature", curv_form))
+
         v.addWidget(_hline())
-        self._topo_btn = _run_btn("▶  Extract Topology")
+        self._topo_btn = _run_btn("▶  Extract Topology (+ curvature)")
         self._topo_btn.clicked.connect(self._run_topology)
         v.addWidget(self._topo_btn)
         v.addStretch()
@@ -410,80 +421,73 @@ class ForceInferenceWidget(QWidget):
             "Bayesian 3D (Newell)",
             "Young-Laplace",
         )
-        self._solver_type.currentIndexChanged.connect(
-            self._on_solver_changed)
+        self._solver_type.currentIndexChanged.connect(self._on_solver_changed)
         solver_form.addRow("Solver:", self._solver_type)
         v.addLayout(solver_form)
 
-        # Shared params
-        shared_form = QFormLayout()
-        self._solve_excl_border  = _check(True, "Exclude border edges")
-        self._solve_border_margin = _int(5, 0, 200)
-        shared_form.addRow("", self._solve_excl_border)
-        shared_form.addRow("border_margin:", self._solve_border_margin)
-        v.addWidget(_group("Shared parameters", shared_form))
+        # ── Solver-specific parameters (stacked: Bayesian vs Laplace) ─────────
+        self._solver_stack = QStackedWidget()
 
-        # Bayesian-only params (hidden for Laplace)
-        self._bayes_group = QGroupBox("Bayesian parameters")
-        bayes_form = QFormLayout(self._bayes_group)
-        self._mu_auto   = _check(True, "Auto-select μ (evidence maximisation)")
-        self._mu_value  = _dbl(1e-3, 1e-12, 1e3, 1e-3, 8)
+        #   Page 0 — Bayesian (shared by 2D and 3D)
+        bayes_w = QWidget(); bayes_form = QFormLayout(bayes_w)
+        self._mu_auto             = _check(True, "Auto-select μ (evidence max.)")
+        self._mu_value            = _dbl(1e-3, 1e-12, 1e3, 1e-3, 8)
         self._mu_value.setEnabled(False)
         self._mu_auto.stateChanged.connect(
             lambda s: self._mu_value.setEnabled(not bool(s)))
+        self._solve_excl_border   = _check(True, "exclude_border_edges")
+        self._solve_border_margin = _int(5, 0, 200)
         bayes_form.addRow("", self._mu_auto)
         bayes_form.addRow("μ (manual):", self._mu_value)
-        v.addWidget(self._bayes_group)
+        bayes_form.addRow("", self._solve_excl_border)
+        bayes_form.addRow("border_margin:", self._solve_border_margin)
+        self._solver_stack.addWidget(bayes_w)
+
+        #   Page 1 — Young-Laplace
+        lap_w = QWidget(); lap_form = QFormLayout(lap_w)
+        self._lap_regularization = _dbl(1.0, 0.0, 1e4, 0.1, 4)
+        self._lap_tension_val    = _dbl(1.0, 0.0, 1e4, 0.1, 4)
+        self._lap_detrend        = _check(False, "detrend")
+        self._lap_zero_center    = _check(False, "zero_center")
+        self._lap_border_margin  = _int(5, 0, 200)
+        lap_note = QLabel("Needs curvature — compute it in tab ② first.")
+        lap_note.setStyleSheet("color:#fbbf24; font-size:9px;")
+        lap_form.addRow("regularization:", self._lap_regularization)
+        lap_form.addRow("tension_val:",    self._lap_tension_val)
+        lap_form.addRow("",                self._lap_detrend)
+        lap_form.addRow("",                self._lap_zero_center)
+        lap_form.addRow("border_margin:",  self._lap_border_margin)
+        lap_form.addRow("",                lap_note)
+        self._solver_stack.addWidget(lap_w)
+
+        v.addWidget(_group("Solver parameters", self._solver_stack))
+
+        # ── Post-processing — runs after the solve ────────────────────────────
+        post_form = QFormLayout()
+        self._do_batchelor   = _check(True,  "Batchelor stress tensors (per cell)")
+        self._do_grid_interp = _check(False, "Interpolate stress to grid")
+        self._grid_size      = _int(50, 5, 500)
+        self._grid_sigma     = _dbl(0.0, 0.0, 500.0, 5.0, 1)
+        self._grid_sigma.setSpecialValueText("auto (1.5 × grid_size)")
+        self._grid_size.setEnabled(False)
+        self._grid_sigma.setEnabled(False)
+        self._do_grid_interp.stateChanged.connect(
+            lambda s: [self._grid_size.setEnabled(bool(s)),
+                       self._grid_sigma.setEnabled(bool(s))])
+        post_form.addRow("", self._do_batchelor)
+        post_form.addRow("", self._do_grid_interp)
+        post_form.addRow("grid_size:", self._grid_size)
+        post_form.addRow("smoothing_sigma:", self._grid_sigma)
+        v.addWidget(_group("Post-processing (stress)", post_form))
 
         v.addWidget(_hline())
-        self._solve_btn = _run_btn("▶  Solve", "#7c3aed")
+        self._solve_btn = _run_btn("▶  Solve (+ stress)", "#7c3aed")
         self._solve_btn.clicked.connect(self._run_solve)
         v.addWidget(self._solve_btn)
         v.addStretch()
         return w
 
-    # ── Tab 4: Geometry ───────────────────────────────────────────────────────
-
-    def _tab_geometry(self) -> QWidget:
-        w = QWidget()
-        v = QVBoxLayout(w)
-
-        # Curvature
-        curv_form = QFormLayout()
-        self._do_curvature = _check(True, "Compute curvature after topology")
-        curv_form.addRow("", self._do_curvature)
-        v.addWidget(_group("compute_curvature", curv_form))
-
-        # Batchelor stress
-        bstress_form = QFormLayout()
-        self._do_batchelor = _check(True, "Calculate Batchelor stress tensors")
-        bstress_form.addRow("", self._do_batchelor)
-        v.addWidget(_group("calculate_batchelor_stress", bstress_form))
-
-        # Grid interpolation
-        grid_form = QFormLayout()
-        self._do_grid_interp     = _check(False, "Interpolate stress to grid")
-        self._grid_size          = _int(50, 5, 500)
-        self._grid_sigma         = _dbl(0.0, 0.0, 500.0, 5.0, 1)
-        self._grid_sigma.setSpecialValueText("auto (1.5 × grid_size)")
-        self._do_grid_interp.stateChanged.connect(
-            lambda s: [self._grid_size.setEnabled(bool(s)),
-                       self._grid_sigma.setEnabled(bool(s))])
-        self._grid_size.setEnabled(False)
-        self._grid_sigma.setEnabled(False)
-        grid_form.addRow("", self._do_grid_interp)
-        grid_form.addRow("grid_size:", self._grid_size)
-        grid_form.addRow("smoothing_sigma:", self._grid_sigma)
-        v.addWidget(_group("interpolate_stress_to_grid", grid_form))
-
-        v.addWidget(_hline())
-        self._geom_btn = _run_btn("▶  Run Geometry", "#ea580c")
-        self._geom_btn.clicked.connect(self._run_geometry)
-        v.addWidget(self._geom_btn)
-        v.addStretch()
-        return w
-
-    # ── Tab 5: Visualise ──────────────────────────────────────────────────────
+    # ── Tab 4: Visualise ──────────────────────────────────────────────────────
 
     def _tab_visualise(self) -> QWidget:
         w = QWidget()
@@ -663,8 +667,8 @@ class ForceInferenceWidget(QWidget):
         self._seg_stack.setCurrentIndex(idx)
 
     def _on_solver_changed(self, idx: int):
-        is_bayes = idx in (0, 1)
-        self._bayes_group.setVisible(is_bayes)
+        # idx 0/1 → Bayesian params (stack page 0); idx 2 → Laplace (page 1)
+        self._solver_stack.setCurrentIndex(0 if idx in (0, 1) else 1)
 
     def _browse_image(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -684,8 +688,7 @@ class ForceInferenceWidget(QWidget):
     def _set_busy(self, busy: bool):
         self._progress.setVisible(busy)
         for btn in (self._seg_btn, self._topo_btn, self._solve_btn,
-                    self._geom_btn, self._vis_btn, self._run_all_btn,
-                    self._z_map_btn):
+                    self._vis_btn, self._run_all_btn, self._z_map_btn):
             btn.setEnabled(not busy)
 
     def _start_worker(self, fn, *args, on_done=None, label="Working…", **kwargs):
@@ -801,12 +804,18 @@ class ForceInferenceWidget(QWidget):
                 copy.deepcopy(tissue),
                 split_length=self._split_length.value(),
             )
+        # Curvature is part of the topology step now (required for Laplace)
+        if self._do_curvature.isChecked():
+            tissue = compute_curvature(tissue)
         return tissue
 
     def _after_topology(self, tissue: Tissue):
         self._tissue = tissue
         nv, ne = len(tissue.V), len(tissue.E)
-        self._log_msg(f"✓ Topology — {nv} vertices, {ne} edges.")
+        has_k = tissue.E_curvature is not None
+        self._log_msg(
+            f"✓ Topology — {nv} vertices, {ne} edges"
+            f"{', curvature ✓' if has_k else ''}.")
         self._refresh_topology_layer()
 
     def _refresh_topology_layer(self):
@@ -834,40 +843,68 @@ class ForceInferenceWidget(QWidget):
                            on_done=self._after_solve)
 
     def _do_solve(self):
-        mu    = None if self._mu_auto.isChecked() else self._mu_value.value()
-        excl  = self._solve_excl_border.isChecked()
-        margin= self._solve_border_margin.value()
-        idx   = self._solver_type.currentIndex()
+        idx = self._solver_type.currentIndex()
+
         def _unwrap(r):
             """Return a ForceResult whether r is a ForceResult or BayesianScanResult."""
             if r is None:
                 return None
             return r.best_result if hasattr(r, "best_result") else r
 
-        if idx == 0:
-            return _unwrap(solve_bayesian(self._tissue, mu=mu,
-                                          exclude_border_edges=excl,
-                                          border_margin=margin))
-        elif idx == 1:
-            return _unwrap(solve_bayesian_3d(self._tissue, mu=mu,
-                                             exclude_border_edges=excl,
-                                             border_margin=margin))
-        else:
-            return solve_laplace(self._tissue,
-                                  exclude_border_edges=excl,
-                                  border_margin=margin)
+        tissue = self._tissue
 
-    def _after_solve(self, result: Optional[ForceResult]):
+        if idx in (0, 1):
+            mu     = None if self._mu_auto.isChecked() else self._mu_value.value()
+            excl   = self._solve_excl_border.isChecked()
+            margin = self._solve_border_margin.value()
+            solver = solve_bayesian if idx == 0 else solve_bayesian_3d
+            result = _unwrap(solver(tissue, mu=mu,
+                                    exclude_border_edges=excl,
+                                    border_margin=margin))
+        else:
+            # Young-Laplace needs curvature; compute it on the fly if missing
+            if tissue.E_curvature is None:
+                tissue = compute_curvature(copy.deepcopy(tissue))
+                self._tissue = tissue
+            result = solve_laplace(
+                tissue,
+                regularization = self._lap_regularization.value(),
+                tension_val    = self._lap_tension_val.value(),
+                detrend        = self._lap_detrend.isChecked(),
+                zero_center    = self._lap_zero_center.isChecked(),
+                border_margin  = self._lap_border_margin.value(),
+            )
+
+        # ── Post-processing (stress + grid) ───────────────────────────────────
+        grid = None
+        if result is not None and self._do_batchelor.isChecked():
+            result = calculate_batchelor_stress(tissue, result)
+        if result is not None and self._do_grid_interp.isChecked():
+            sigma = self._grid_sigma.value()
+            grid = interpolate_stress_to_grid(
+                tissue, result,
+                grid_size       = self._grid_size.value(),
+                smoothing_sigma = None if sigma == 0.0 else sigma,
+            )
+        return result, grid
+
+    def _after_solve(self, payload):
+        result, grid = payload
         if result is None:
             self._log_msg("✗ Solver returned no result.")
             return
         self._result = result
         valid = int(np.sum(np.isfinite(result.tensions)))
-        self._log_msg(f"✓ Solve done — {valid} tensions, "
-                      f"residual={result.residual:.4g}")
+        has_s = result.stress_tensors is not None
+        self._log_msg(
+            f"✓ Solve done — {valid} tensions, residual={result.residual:.4g}"
+            f"{', stress ✓' if has_s else ''}")
         self._log_msg(result.summary())
         self._refresh_tension_layer()
         self._refresh_pressure_layer()
+        self._refresh_batchelor_layer()
+        if grid is not None:
+            self._show_stress_grid(grid)
 
     def _refresh_tension_layer(self):
         if self._tissue is None or self._result is None:
@@ -903,60 +940,25 @@ class ForceInferenceWidget(QWidget):
             "opacity": 0.95,
         })
 
-    # ── Geometry ──────────────────────────────────────────────────────────────
+    # ── Interpolated stress grid display ──────────────────────────────────────
 
-    def _run_geometry(self):
-        if self._tissue is None:
-            self._log_msg("✗ Extract topology first.")
+    def _show_stress_grid(self, grid):
+        (gx, gy), gt = grid
+        if gt is None:
             return
-        self._start_worker(self._do_geometry, label="Running geometry…",
-                           on_done=self._after_geometry)
-
-    def _do_geometry(self):
-        t = copy.deepcopy(self._tissue)
-        r = copy.deepcopy(self._result) if self._result else None
-        if self._do_curvature.isChecked():
-            t = compute_curvature(t)
-        if r is not None and self._do_batchelor.isChecked():
-            r = calculate_batchelor_stress(t, r)
-        grid = None
-        if r is not None and self._do_grid_interp.isChecked():
-            sigma = self._grid_sigma.value()
-            grid = interpolate_stress_to_grid(
-                t, r,
-                grid_size     = self._grid_size.value(),
-                smoothing_sigma = None if sigma == 0.0 else sigma,
-            )
-        return t, r, grid
-
-    def _after_geometry(self, payload):
-        tissue, result, grid = payload
-        self._tissue = tissue
-        self._result = result
-        has_k = tissue.E_curvature is not None
-        has_s = result is not None and result.stress_tensors is not None
+        # Trace of stress tensor = hydrostatic component
+        trace = gt[..., 0, 0] + gt[..., 1, 1]
+        gs = self._grid_size.value()
+        # scale + translate so the coarse grid aligns with the full image
+        self._upsert_layer("image", self._LAYER_STRESS_GRID, trace, {
+            "colormap":  "RdBu_r",
+            "opacity":   0.50,
+            "scale":     [gs, gs],
+            "translate": [gs / 2.0, gs / 2.0],
+        })
         self._log_msg(
-            f"✓ Geometry done — curvature={'yes' if has_k else 'no'}, "
-            f"stress={'yes' if has_s else 'no'}."
-        )
-        if grid is not None:
-            (gx, gy), gt = grid
-            if gt is not None:
-                # Trace of stress tensor = hydrostatic component
-                trace = gt[..., 0, 0] + gt[..., 1, 1]
-                gs = self._grid_size.value()
-                # scale + translate so the grid aligns with the full image
-                self._upsert_layer("image", self._LAYER_STRESS_GRID, trace, {
-                    "colormap": "RdBu_r",
-                    "opacity":  0.50,
-                    "scale":    [gs, gs],
-                    "translate":[gs / 2.0, gs / 2.0],
-                })
-                self._log_msg(
-                    f"✓ Stress grid: {trace.shape} cells × {gs}px → "
-                    f"covers ~{trace.shape[0]*gs}×{trace.shape[1]*gs}px")
-        self._refresh_tension_layer()
-        self._refresh_batchelor_layer()
+            f"✓ Stress grid: {trace.shape} cells × {gs}px → "
+            f"covers ~{trace.shape[0]*gs}×{trace.shape[1]*gs}px")
 
     # ── Per-cell pressure / stress layer refresh ──────────────────────────────
 
@@ -1168,27 +1170,34 @@ class ForceInferenceWidget(QWidget):
                     split_length=self._split_length.value(),
                 )
 
+            # 2b. Curvature (needed for Laplace; cheap, keep if requested)
+            idx = self._solver_type.currentIndex()
+            if self._do_curvature.isChecked() or idx == 2:
+                tissue = compute_curvature(tissue)
+
             # 3. Solve
-            mu     = None if self._mu_auto.isChecked() else self._mu_value.value()
-            excl   = self._solve_excl_border.isChecked()
-            margin = self._solve_border_margin.value()
-            idx    = self._solver_type.currentIndex()
             def _unwrap(r):
                 return r.best_result if (r and hasattr(r, "best_result")) else r
 
-            if idx == 0:
-                result = _unwrap(solve_bayesian(tissue, mu=mu,
-                                                exclude_border_edges=excl,
-                                                border_margin=margin))
-            elif idx == 1:
-                result = _unwrap(solve_bayesian_3d(tissue, mu=mu,
-                                                   exclude_border_edges=excl,
-                                                   border_margin=margin))
+            if idx in (0, 1):
+                mu     = None if self._mu_auto.isChecked() else self._mu_value.value()
+                excl   = self._solve_excl_border.isChecked()
+                margin = self._solve_border_margin.value()
+                solver = solve_bayesian if idx == 0 else solve_bayesian_3d
+                result = _unwrap(solver(tissue, mu=mu,
+                                        exclude_border_edges=excl,
+                                        border_margin=margin))
             else:
-                result = solve_laplace(tissue, exclude_border_edges=excl,
-                                        border_margin=margin)
+                result = solve_laplace(
+                    tissue,
+                    regularization = self._lap_regularization.value(),
+                    tension_val    = self._lap_tension_val.value(),
+                    detrend        = self._lap_detrend.isChecked(),
+                    zero_center    = self._lap_zero_center.isChecked(),
+                    border_margin  = self._lap_border_margin.value(),
+                )
 
-            # 4. Optional geometry
+            # 4. Optional stress
             if self._do_batchelor.isChecked() and result:
                 result = calculate_batchelor_stress(tissue, result)
 
@@ -1209,6 +1218,8 @@ class ForceInferenceWidget(QWidget):
             self._upsert_layer("labels", self._LAYER_LABELS, labels, {})
             self._refresh_topology_layer()
             self._refresh_tension_layer()
+            self._refresh_pressure_layer()
+            self._refresh_batchelor_layer()
 
         self._start_worker(_pipeline, label="Full pipeline…", on_done=_after)
 

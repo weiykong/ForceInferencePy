@@ -292,6 +292,32 @@ Eigendecomposition gives the principal stress axes displayed as crosses in the n
 
 ---
 
+## Performance
+
+Label-driven topology extraction was profiled on real segmented tissue and
+sped up **14–21×** with no change in output (byte-for-byte identical vertices
+and edges; equivalence-tested against the previous implementation).
+
+| Image (cells) | Before | After | Speedup |
+|---|---|---|---|
+| `example.tif` (224 cells, 804×948) | 6.55 s | 0.46 s | **14×** |
+| `test.tif` (670 cells, 791×840) | 17.7 s | 0.84 s | **21×** |
+
+*Median of 5 runs, macOS arm64 / Python 3.11 / numpy 1.26. See `benchmarks/`.*
+
+The gains were purely algorithmic — two hot paths each performed a
+**full-image operation inside a per-item loop**, an accidental
+`O(n_items × H × W)`:
+
+- `_build_edges_from_corners` ran connected-component labelling on the *entire*
+  corner map once per cell-pair (~1900×). Now each pair is cropped to the
+  bounding box of its own corners → `O(boundary corners)`.
+- `_cluster_vertex_corners` rescanned the full label array once per vertex
+  component (~1300×). Now all component pixels are grouped in a single pass.
+
+No native/compiled code was needed: profiling showed the cost was structural,
+so the right fix was the algorithm, not an FFI rewrite.
+
 ## API quick-reference
 
 | Function | Module | Description |
