@@ -605,8 +605,19 @@ def _cluster_vertex_corners(
     vertex_cell_sets: List[Set[int]] = []
     corner_to_vid: Dict[Tuple[int, int], int] = {}
 
+    # Group all component pixels in ONE pass instead of scanning the full
+    # comp_label array once per component (previously O(n_comp * H * W)).
+    fr, fc = np.where(comp_label > 0)
+    cids = comp_label[fr, fc]
+    order = np.argsort(cids, kind='stable')
+    fr, fc, cids = fr[order], fc[order], cids[order]
+    # nd_label produces contiguous ids 1..n_comp; split sorted pixels per id.
+    split_points = np.searchsorted(cids, np.arange(2, n_comp + 1))
+    cr_groups = np.split(fr, split_points)
+    cc_groups = np.split(fc, split_points)
+
     for cid in range(1, n_comp + 1):
-        cr, cc = np.where(comp_label == cid)
+        cr, cc = cr_groups[cid - 1], cc_groups[cid - 1]
 
         # Collect the 4-label signature for each corner in this component
         pixel_sigs: List[frozenset] = []
@@ -819,27 +830,59 @@ def _build_edges_from_corners(
                     code = cell_a * K + cell_b
                     pair_vertex_corners.setdefault(code, []).append((r, c))
 
+    # Pre-index edge corners by code in a SINGLE pass over the corner map.
+    # Previously each code re-scanned, copied and connected-component-labelled
+    # the full (H-1, W-1) corner map — O(n_codes * H * W). Since each cell pair
+    # occupies only a tiny local region, we instead crop each code's work to the
+    # bounding box of its corners, which is O(total boundary corners).
+    code_to_edge_corners: Dict[int, List[Tuple[int, int]]] = {}
+    er_all, ec_all = np.where(edge_corner_map > 0)
+    for r, c, cd in zip(er_all.tolist(), ec_all.tolist(),
+                        edge_corner_map[er_all, ec_all].tolist()):
+        code_to_edge_corners.setdefault(int(cd), []).append((r, c))
+
     for code in unique_codes:
         c1 = int(code // K)
         c2 = int(code % K)
 
-        # Base mask: edge corners for this pair
-        pair_mask = (edge_corner_map == code)
+        edge_corner_pts = code_to_edge_corners.get(int(code), [])
+        vtx_corner_pts = [
+            (r, c) for (r, c) in pair_vertex_corners.get(int(code), [])
+            if 0 <= r < H_c and 0 <= c < W_c
+        ]
+        all_pts = edge_corner_pts + vtx_corner_pts
+        if not all_pts:
+            continue
 
-        # Augmented mask: include relevant vertex corners
-        augmented = pair_mask.copy()
-        for (r, c) in pair_vertex_corners.get(int(code), []):
-            if 0 <= r < H_c and 0 <= c < W_c:
-                augmented[r, c] = True
+        # Bounding box of this pair's corners (+1 px margin, clipped to grid).
+        rr = [p[0] for p in all_pts]
+        cc = [p[1] for p in all_pts]
+        r0 = max(0, min(rr) - 1)
+        c0 = max(0, min(cc) - 1)
+        r1 = min(H_c - 1, max(rr) + 1)
+        c1b = min(W_c - 1, max(cc) + 1)
+        sub_h = r1 - r0 + 1
+        sub_w = c1b - c0 + 1
+
+        # Local augmented mask (edge + vertex corners) and edge-only mask.
+        augmented = np.zeros((sub_h, sub_w), dtype=bool)
+        sub_pair = np.zeros((sub_h, sub_w), dtype=bool)
+        for (r, c) in edge_corner_pts:
+            augmented[r - r0, c - c0] = True
+            sub_pair[r - r0, c - c0] = True
+        for (r, c) in vtx_corner_pts:
+            augmented[r - r0, c - c0] = True
 
         comp_label_c, n_comp = nd_label(augmented, structure=struct)
 
         for comp_id in range(1, n_comp + 1):
             comp_mask = (comp_label_c == comp_id)
 
-            # Edge-only corners (not vertex corners)
-            edge_only = comp_mask & pair_mask
-            er, ec = np.where(edge_only)
+            # Edge-only corners (not vertex corners), translated to global coords
+            edge_only = comp_mask & sub_pair
+            er_l, ec_l = np.where(edge_only)
+            er = er_l + r0
+            ec = ec_l + c0
             if len(er) < min_edge_len:
                 continue
 
@@ -850,7 +893,9 @@ def _build_edges_from_corners(
 
             # Find which vertex corners this component touches
             touching_vids: Set[int] = set()
-            comp_r, comp_c = np.where(comp_mask)
+            comp_r_l, comp_c_l = np.where(comp_mask)
+            comp_r = comp_r_l + r0
+            comp_c = comp_c_l + c0
             for r, c in zip(comp_r, comp_c):
                 # Direct hit
                 if (int(r), int(c)) in corner_to_vid:

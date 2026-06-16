@@ -1,0 +1,33 @@
+         938851 function calls (938622 primitive calls) in 17.831 seconds
+
+   Ordered by: internal time
+   List reduced from 360 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    9.518    9.518   14.011   14.011 /Users/weiyuankong/ForceInferencePy/force_inference/topology_label.py:768(_build_edges_from_corners)
+     1907    4.378    0.002    4.421    0.002 /opt/homebrew/lib/python3.11/site-packages/scipy/ndimage/_measurements.py:43(label)
+        1    2.966    2.966    2.990    2.990 /Users/weiyuankong/ForceInferencePy/force_inference/topology_label.py:577(_cluster_vertex_corners)
+     1900    0.146    0.000    0.430    0.000 /Users/weiyuankong/ForceInferencePy/force_inference/topology_label.py:1679(_order_pixels)
+    40788    0.072    0.000    0.072    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+    21096    0.055    0.000    0.097    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/linalg/linalg.py:2383(norm)
+     1913    0.037    0.000    0.037    0.000 {method 'copy' of 'numpy.ndarray' objects}
+     3355    0.033    0.000    0.106    0.000 /opt/homebrew/lib/python3.11/site-packages/skimage/measure/_regionprops.py:492(coords_scaled)
+     1904    0.033    0.000    0.033    0.000 {method 'sort' of 'numpy.ndarray' objects}
+     3355    0.031    0.000    0.031    0.000 {method 'nonzero' of 'numpy.ndarray' objects}
+        1    0.030    0.030    0.030    0.030 /opt/homebrew/lib/python3.11/site-packages/skimage/morphology/_skeletonize.py:99(_skeletonize_zhang)
+     6063    0.021    0.000    0.056    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/core/_methods.py:101(_mean)
+        3    0.019    0.006    0.019    0.006 {built-in method _imp.create_dynamic}
+     1900    0.019    0.000    0.102    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/lib/function_base.py:4765(_quantile)
+     9844    0.018    0.000    0.018    0.000 {method 'items' of 'dict' objects}
+        1    0.017    0.017    0.019    0.019 /Users/weiyuankong/ForceInferencePy/force_inference/topology_label.py:1287(_snap_to_skeleton)
+        1    0.017    0.017    0.041    0.041 /Users/weiyuankong/ForceInferencePy/force_inference/topology_label.py:528(_classify_boundary_corners)
+    28705    0.015    0.000    0.074    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/core/fromnumeric.py:53(_wrapfunc)
+     9841    0.015    0.000    0.071    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/core/fromnumeric.py:71(_wrapreduction)
+        3    0.014    0.005    0.014    0.005 {built-in method scipy.ndimage._nd_image.find_objects}
+    31625    0.013    0.000    0.013    0.000 {built-in method numpy.asarray}
+    19173    0.012    0.000    0.032    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/core/fromnumeric.py:1236(argmin)
+     1900    0.012    0.000    0.013    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/lib/function_base.py:4641(_lerp)
+     1900    0.012    0.000    0.029    0.000 /opt/homebrew/lib/python3.11/site-packages/numpy/lib/function_base.py:4730(_get_indexes)
+        2    0.012    0.006    0.190    0.095 /Users/weiyuankong/ForceInferencePy/force_inference/topology_label.py:1741(_build_C_v)
+
+

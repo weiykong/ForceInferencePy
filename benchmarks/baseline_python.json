@@ -1,0 +1,100 @@
+{
+  "generated": "2026-06-16T08:35:10.360795+00:00",
+  "platform": "macOS-26.5-arm64-arm-64bit",
+  "python": "3.11.11",
+  "numpy": "1.26.4",
+  "images": {
+    "data/example.tif|hw=1": {
+      "image": "data/example.tif",
+      "half_window": 1,
+      "shape": [
+        804,
+        948
+      ],
+      "n_cells": 224,
+      "n_boundary_pixels": 61588,
+      "n_vertex_pixels": 1704,
+      "classify_boundary_pixels": {
+        "best_s": 0.38879654195625335,
+        "median_s": 0.3924054999370128,
+        "mean_s": 0.40276935817673803,
+        "repeats": 5
+      },
+      "extract_topology_full": {
+        "best_s": 6.508130291942507,
+        "median_s": 6.544854124891572,
+        "mean_s": 6.553880433551967,
+        "repeats": 5
+      }
+    },
+    "data/example.tif|hw=2": {
+      "image": "data/example.tif",
+      "half_window": 2,
+      "shape": [
+        804,
+        948
+      ],
+      "n_cells": 224,
+      "n_boundary_pixels": 120796,
+      "n_vertex_pixels": 7289,
+      "classify_boundary_pixels": {
+        "best_s": 0.8347081249812618,
+        "median_s": 0.8476769590051845,
+        "mean_s": 0.8493817417882383,
+        "repeats": 5
+      },
+      "extract_topology_full": {
+        "best_s": 6.526641916017979,
+        "median_s": 6.537199500016868,
+        "mean_s": 6.55555484960787,
+        "repeats": 5
+      }
+    },
+    "data/test.tif|hw=1": {
+      "image": "data/test.tif",
+      "half_window": 1,
+      "shape": [
+        791,
+        840
+      ],
+      "n_cells": 671,
+      "n_boundary_pixels": 107752,
+      "n_vertex_pixels": 5447,
+      "classify_boundary_pixels": {
+        "best_s": 0.6271714579779655,
+        "median_s": 0.6310946249868721,
+        "mean_s": 0.6363449167925864,
+        "repeats": 5
+      },
+      "extract_topology_full": {
+        "best_s": 17.525441125035286,
+        "median_s": 17.74551008408889,
+        "mean_s": 17.89995601703413,
+        "repeats": 5
+      }
+    },
+    "data/test.tif|hw=2": {
+      "image": "data/test.tif",
+      "half_window": 2,
+      "shape": [
+        791,
+        840
+      ],
+      "n_cells": 671,
+      "n_boundary_pixels": 207405,
+      "n_vertex_pixels": 23162,
+      "classify_boundary_pixels": {
+        "best_s": 1.325435624923557,
+        "median_s": 1.3500697090057656,
+        "mean_s": 1.3515393917681648,
+        "repeats": 5
+      },
+      "extract_topology_full": {
+        "best_s": 17.87853924999945,
+        "median_s": 18.162808583001606,
+        "mean_s": 18.623409166606145,
+        "repeats": 5
+      }
+    }
+  }
+}

@@ -5,6 +5,41 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Napari plugin** (`force_inference._napari`) exposing the full pipeline as a
+  6-tab dock widget — Segment, Topology + Curvature, Solve + Stress, Visualise,
+  TimeSeries, and 2.5D / 3D — wiring every pipeline parameter to a Qt control.
+  Segmentation runs in a spawned subprocess to avoid the macOS OMP/PyTorch
+  segfault inside Qt threads. Launch with `python -m force_inference._napari`.
+- **Batchelor stress crosses** rendered as napari `Vectors` layers (principal
+  axes of the per-cell stress tensor: red = tension, blue = compression).
+- **Portfolio poster** generator (`scripts/generate_portfolio_poster.py`) that
+  renders a recruiter-ready figure from a live pipeline run.
+
+### Fixed
+
+- `solve_laplace` is now called with its real signature in the napari widget
+  (`regularization`, `tension_val`, `detrend`, `zero_center`, `border_margin`);
+  curvature is auto-computed when the Young-Laplace solver is selected.
+
+### Performance
+
+- **Label-driven topology extraction is 14–21× faster** with byte-for-byte
+  identical output (equivalence-tested). Two hot paths each ran a full-image
+  operation inside a per-item loop (`O(n_items × H × W)`):
+  - `_build_edges_from_corners` (`topology_label.py`) — replaced full-map
+    connected-component labelling per cell-pair with bounding-box-local
+    labelling indexed in a single pass over the corner map.
+  - `_cluster_vertex_corners` (`topology_label.py`) — replaced a full
+    `comp_label == cid` scan per vertex component with one-pass grouping of
+    component pixels.
+  - Benchmark harness and baseline/after numbers added under `benchmarks/`.
+
+---
+
 ## [0.1.0] — 2024 (Initial Release)
 
 ### Added
