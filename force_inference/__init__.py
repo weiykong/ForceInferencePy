@@ -14,7 +14,7 @@ Napari GUI::
 """
 
 __version__ = "0.2.0"
-__author__  = "Wei-Yuan Kong"
+__author__  = "weiykong"
 __email__   = "weiyuankong@gmail.com"
 __license__ = "MIT"
 

@@ -382,4 +382,4 @@ pytest tests/ -q
 
 ## License
 
-MIT © Wei-Yuan Kong
+MIT © weiykong
