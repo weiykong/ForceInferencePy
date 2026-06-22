@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "Bayesian cell force inference from fluorescence microscopy — label-driven topology, 3D force balance, time-series alignment, napari GUI."
 readme = "README.md"
 authors = [
-    {name = "Wei-Yuan Kong", email = "weiyuankong@gmail.com"}
+    {name = "weiykong", email = "weiyuankong@gmail.com"}
 ]
 license = {text = "MIT"}
 keywords = [
